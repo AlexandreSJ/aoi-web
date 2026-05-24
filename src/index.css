@@ -270,6 +270,25 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  position: relative;
+}
+
+.mobile-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  border: none;
+  outline: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font-size: 16px;
+  z-index: -1;
+  top: 0;
+  left: 0;
 }
 
 .typing-screen {
@@ -393,6 +412,6 @@
 /* ---- Responsive ---- */
 
 @media (max-width: 640px) {
-  .typing-text-area { font-size: 1rem; line-height: 1.6; }
+  .typing-text-area { font-size: 0.8rem; line-height: 1.6; }
   .typing-footer { font-size: 0.65rem; }
 }

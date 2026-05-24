@@ -145,10 +145,18 @@ export function GameScreen({ initialMode, onEsc }: GameScreenProps) {
   const [flashError, setFlashError] = useState(false);
   const [charLimit, setCharLimit] = useState(50);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [loaded]);
+
+  useEffect(() => {
+    if (!loaded) return;
     const measure = () => {
       if (!containerRef.current) return;
       const el = containerRef.current;
@@ -163,7 +171,7 @@ export function GameScreen({ initialMode, onEsc }: GameScreenProps) {
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, []);
+  }, [loaded]);
 
   useEffect(() => {
     setTypingState((prev) => prev ? { ...prev, charLimit } : prev);
@@ -207,9 +215,34 @@ export function GameScreen({ initialMode, onEsc }: GameScreenProps) {
     };
   }, [typingState?.timerRunning, typingState?.finished]);
 
+  const keyHandledRef = useRef(false);
+
+  const processChar = useCallback(
+    (input: string, prev: TypingState) => {
+      let result = handleChar(prev, input);
+      if (
+        prev.mode === GameMode.Timed &&
+        !prev.timerRunning &&
+        !prev.finished
+      ) {
+        result = { ...result, timerRunning: true };
+      }
+      const isError = result.cursor > 0 && result.chars[result.cursor - 1]?.state === CharState.Error;
+      setFlashIdx(result.cursor - 1);
+      setFlashError(isError);
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = setTimeout(() => {
+        setFlashIdx(null);
+      }, 150);
+      return result;
+    },
+    [],
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (!typingState || !loaded) return;
+      keyHandledRef.current = false;
 
       setTypingState((prev) => {
         if (!prev) return prev;
@@ -222,6 +255,7 @@ export function GameScreen({ initialMode, onEsc }: GameScreenProps) {
         }
 
         if (e.key === "Enter") {
+          e.preventDefault();
           if (prev.finished) {
             const cfg = loadConfig();
             return initTyping({
@@ -262,33 +296,47 @@ export function GameScreen({ initialMode, onEsc }: GameScreenProps) {
         if (e.key === " " || e.key.length === 1) {
           e.preventDefault();
           const input = e.key === " " ? " " : e.key;
-
-          let result = handleChar(next, input);
-
-          if (
-            prev.mode === GameMode.Timed &&
-            !prev.timerRunning &&
-            !prev.finished
-          ) {
-            result = { ...result, timerRunning: true };
-          }
-
-          const isError = result.cursor > 0 && result.chars[result.cursor - 1]?.state === CharState.Error;
-          setFlashIdx(result.cursor - 1);
-          setFlashError(isError);
-          if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-          flashTimerRef.current = setTimeout(() => {
-            setFlashIdx(null);
-          }, 150);
-
-          return result;
+          keyHandledRef.current = true;
+          return processChar(input, next);
         }
 
         return prev;
       });
     },
-    [typingState, loaded, initialMode, words, quotes, onEsc],
+    [typingState, loaded, initialMode, words, quotes, onEsc, processChar],
   );
+
+  const handleInput = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!typingState || !loaded) return;
+      const value = e.target.value;
+      if (!value) return;
+      if (keyHandledRef.current) {
+        e.target.value = "";
+        return;
+      }
+      setTypingState((prev) => {
+        if (!prev || prev.finished) return prev;
+        let result = prev;
+        for (const ch of value) {
+          result = processChar(ch, result);
+        }
+        return result;
+      });
+      e.target.value = "";
+    },
+    [typingState, loaded, processChar],
+  );
+
+  const handleScreenTouch = useCallback(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    if (document.activeElement === input) {
+      input.blur();
+    } else {
+      input.focus();
+    }
+  }, []);
 
   if (!loaded || !typingState) {
     return <div className="typing-loading">Loading...</div>;
@@ -298,9 +346,21 @@ export function GameScreen({ initialMode, onEsc }: GameScreenProps) {
     <div
       className="game-screen"
       tabIndex={0}
-      onKeyDown={handleKeyDown}
-      ref={(el) => { containerRef.current = el; el?.focus(); }}
+      ref={(el) => { containerRef.current = el; }}
+      onTouchEnd={handleScreenTouch}
+      onClick={handleScreenTouch}
     >
+      <input
+        ref={inputRef}
+        className="mobile-input"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        inputMode="text"
+        onKeyDown={handleKeyDown}
+        onChange={handleInput}
+      />
       <TypingScreen state={typingState} flashIdx={flashIdx} flashError={flashError} charLimit={charLimit} />
     </div>
   );
