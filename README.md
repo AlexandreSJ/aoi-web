@@ -21,6 +21,10 @@
   <a href="https://www.buymeacoffee.com/aelxand" target="_blank">
     <img width=120px src="assets/bmc/bmc.png" alt="Buy Me A Coffee">
   </a>
+  <br>
+  <br>
+  <a href="https://aoi-online.vercel.app/"><img src="https://img.shields.io/badge/see%20live-0af?style=for-the-badge&logo=vercel" alt="See live" /></a>
+
 </div>
 
 ## What is Aoi Web?
